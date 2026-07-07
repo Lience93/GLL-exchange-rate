@@ -406,9 +406,10 @@ function buildTable() {
   const infoEl = document.getElementById('rateInfo');
   const parts = DISPLAY_ORDER.filter(c => c !== 'CNY').map(code => {
     const rate = rates[code];
-    const symbol = CURRENCIES[code].symbol;
-    const fmtRate = code === 'KRW' ? rate.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}) : rate;
-    return `<span class="rate-item">${CURRENCIES[code].flag} 1 CNY = ${symbol}${fmtRate}</span>`;
+    const perCNY = 1 / rate;
+    const decimals = code === 'KRW' ? 4 : 2;
+    const fmtRate = perCNY.toLocaleString('zh-CN', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+    return `<span class="rate-item">${CURRENCIES[code].flag} 1 ${CURRENCIES[code].char} = ¥${fmtRate}</span>`;
   });
   const dateStr = lastUpdated ? `更新于 ${lastUpdated}` : '';
   infoEl.innerHTML = parts.join('<span style="color:var(--border)">|</span>') +
