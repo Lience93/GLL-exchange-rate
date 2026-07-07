@@ -199,6 +199,33 @@
     transition: background .15s, color .15s;
   }
   .modal-close:hover { background: #f1f5f9; color: var(--text); }
+  .quick-add {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .qa-btn {
+    flex: 1;
+    min-width: 48px;
+    padding: 5px 0;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .qa-btn:hover {
+    background: #f1f5f9;
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .qa-btn:active {
+    background: #e2e8f0;
+  }
+
   .modal-body { display: flex; flex-direction: column; gap: 14px; }
   .form-row {
     display: flex;
@@ -293,6 +320,12 @@
       <div class="form-row">
         <label for="modalAmount">金额</label>
         <input type="number" id="modalAmount" min="0" step="any">
+      </div>
+      <div class="quick-add">
+        <button class="qa-btn" data-add="10000">+10000</button>
+        <button class="qa-btn" data-add="1000">+1000</button>
+        <button class="qa-btn" data-add="100">+100</button>
+        <button class="qa-btn" data-add="10">+10</button>
       </div>
       <div class="form-row">
         <label for="modalSource">源币种</label>
@@ -485,6 +518,18 @@ document.getElementById('modalSource').addEventListener('change', () => {
   updateModalResult();
 });
 document.getElementById('modalTarget').addEventListener('change', updateModalResult);
+
+// Quick-add buttons
+document.querySelectorAll('.qa-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = document.getElementById('modalAmount');
+    const add = parseFloat(btn.dataset.add);
+    if (!isNaN(add)) {
+      input.value = (parseFloat(input.value) || 0) + add;
+      updateModalResult();
+    }
+  });
+});
 
 // Keyboard shortcut: Esc to close
 document.addEventListener('keydown', (e) => {
