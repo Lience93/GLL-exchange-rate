@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>咕辘辘跨境电商汇率换算工具</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,.12), 0 4px 10px rgba(0,0,0,.08);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 16px;
+    line-height: 1.5;
+  }
+
+  .container {
+    max-width: 860px;
+    width: 100%;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 28px;
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .header .sub {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .header .rate-info {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    display: inline-flex;
+    gap: 18px;
+    box-shadow: var(--shadow);
+  }
+  .rate-info .rate-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .rate-info .rate-item .flag { font-size: 15px; }
+  .rate-info .rate-item .val { font-weight: 600; color: var(--text); }
+
+  /* Loading / Error */
+  .loading-state, .error-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+    font-size: 15px;
+  }
+  .error-state { color: #dc2626; }
+  .spinner {
+    display: inline-block;
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    margin-bottom: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Table */
+  .table-wrapper {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  thead th {
+    background: #f8fafc;
+    border-bottom: 2px solid var(--border);
+    padding: 12px 14px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  thead th:first-child { text-align: left; }
+  tbody td {
+    padding: 10px 14px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text);
+    cursor: default;
+  }
+  tbody td:not(:first-child):hover {
+    background: #eef2ff;
+    color: var(--primary);
+  }
+  tbody tr:hover td:first-child { background: #f8fafc; }
+  .cny-col { color: var(--text); }
+  .usd-col { color: #059669; }
+  .krw-col { color: #d97706; }
+  .mxn-col { color: #7c3aed; }
+
+  /* Modal Overlay */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .2s, visibility .2s;
+  }
+  .modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    width: 420px;
+    max-width: 92vw;
+    box-shadow: var(--shadow-lg);
+    padding: 28px 24px 24px;
+    transform: translateY(12px);
+    transition: transform .2s;
+  }
+  .modal-overlay.active .modal { transform: translateY(0); }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .modal-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .modal-close {
+    width: 32px; height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 20px;
+    transition: background .15s, color .15s;
+  }
+  .modal-close:hover { background: #f1f5f9; color: var(--text); }
+  .modal-body { display: flex; flex-direction: column; gap: 14px; }
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .form-row label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .form-row input, .form-row select {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 15px;
+    color: var(--text);
+    background: var(--surface);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .form-row input:focus, .form-row select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+  }
+  .modal-result {
+    margin-top: 8px;
+    padding: 14px 16px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .modal-result .result-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-result .result-line + .result-line { margin-top: 6px; }
+  .modal-result .result-label { color: var(--text-secondary); font-size: 13px; }
+  .modal-result .result-val {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 540px) {
+    body { padding: 20px 8px; }
+    .header h1 { font-size: 21px; }
+    .rate-info { flex-wrap: wrap; justify-content: center; gap: 10px; }
+    table { font-size: 13px; }
+    thead th, tbody td { padding: 8px 10px; }
+    .modal { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>咕辘辘跨境电商汇率换算工具</h1>
+    <div class="sub">实时人民币兑换汇率对照表</div>
+    <div class="rate-info" id="rateInfo"></div>
+  </div>
+
+  <div id="tableContainer">
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <div>正在获取实时汇率…</div>
+    </div>
+  </div>
+
+  <div class="footer">数据来源: ExchangeRate-API &middot; 汇率每分钟更新</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">兑换</h2>
+      <button class="modal-close" id="modalClose" aria-label="关闭">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label for="modalAmount">金额</label>
+        <input type="number" id="modalAmount" min="0" step="any">
+      </div>
+      <div class="form-row">
+        <label for="modalSource">源币种</label>
+        <select id="modalSource">
+          <option value="CNY">人民币 (CNY)</option>
+          <option value="USD">美元 (USD)</option>
+          <option value="KRW">韩元 (KRW)</option>
+          <option value="MXN">墨西哥比索 (MXN)</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="modalTarget">目标币种</label>
+        <select id="modalTarget">
+          <option value="CNY">人民币 (CNY)</option>
+          <option value="USD">美元 (USD)</option>
+          <option value="KRW">韩元 (KRW)</option>
+          <option value="MXN">墨西哥比索 (MXN)</option>
+        </select>
+      </div>
+      <div class="modal-result" id="modalResult"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CURRENCIES = {
+  CNY: { name: '人民币', symbol: '¥', flag: '🇨🇳', char: 'RMB' },
+  USD: { name: '美元', symbol: '$', flag: '🇺🇸', char: 'USD' },
+  KRW: { name: '韩元', symbol: '₩', flag: '🇰🇷', char: 'KRW' },
+  MXN: { name: '墨西哥比索', symbol: 'Mex$', flag: '🇲🇽', char: 'MXN' },
+};
+const COL_CLASSES = { CNY: 'cny-col', USD: 'usd-col', KRW: 'krw-col', MXN: 'mxn-col' };
+const DISPLAY_ORDER = ['CNY', 'USD', 'KRW', 'MXN'];
+
+let rates = {}; // { CNY: 1, USD: 0.147, KRW: 225.28, MXN: 2.57 }
+let lastUpdated = '';
+
+async function fetchRates() {
+  const res = await fetch('https://api.exchangerate-api.com/v4/latest/CNY');
+  if (!res.ok) throw new Error('获取汇率失败');
+  const data = await res.json();
+  lastUpdated = data.date;
+  rates = {
+    CNY: 1,
+    USD: data.rates.USD,
+    KRW: data.rates.KRW,
+    MXN: data.rates.MXN,
+  };
+}
+
+function convert(amount, from, to) {
+  if (!rates[from] || !rates[to]) return 0;
+  const inCNY = amount / rates[from]; // convert to CNY base
+  return inCNY * rates[to];
+}
+
+function fmt(value, code) {
+  if (value === 0) return '0';
+  const decimals = code === 'KRW' ? 0 : 2;
+  return value.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function buildTable() {
+  const container = document.getElementById('tableContainer');
+
+  const headerCols = DISPLAY_ORDER.map(code =>
+    `<th>${CURRENCIES[code].flag} ${CURRENCIES[code].char}</th>`
+  ).join('');
+
+  const rows = [];
+  for (let rmb = 50; rmb <= 1000; rmb += 50) {
+    const cells = DISPLAY_ORDER.map((code, idx) => {
+      if (code === 'CNY') {
+        return `<td class="${COL_CLASSES[code]}" onclick="openModal(${rmb}, 'CNY')">${rmb}</td>`;
+      }
+      const val = convert(rmb, 'CNY', code);
+      return `<td class="${COL_CLASSES[code]}" onclick="openModal(${val}, '${code}')">${CURRENCIES[code].symbol}${fmt(val, code)}</td>`;
+    }).join('');
+    rows.push(`<tr>${cells}</tr>`);
+  }
+
+  container.innerHTML = `
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>${headerCols}</tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>
+    </div>
+  `;
+
+  // Update rate info bar
+  const infoEl = document.getElementById('rateInfo');
+  const parts = DISPLAY_ORDER.filter(c => c !== 'CNY').map(code => {
+    const rate = rates[code];
+    const symbol = CURRENCIES[code].symbol;
+    const fmtRate = code === 'KRW' ? rate.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}) : rate;
+    return `<span class="rate-item">${CURRENCIES[code].flag} 1 CNY = ${symbol}${fmtRate}</span>`;
+  });
+  const dateStr = lastUpdated ? `更新于 ${lastUpdated}` : '';
+  infoEl.innerHTML = parts.join('<span style="color:var(--border)">|</span>') +
+    `<span style="color:var(--text-secondary);font-size:12px;margin-left:4px">${dateStr ? '· '+dateStr : ''}</span>`;
+}
+
+// Modal logic
+let currentSourceCode = 'CNY';
+
+function openModal(amount, sourceCode) {
+  currentSourceCode = sourceCode;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.getElementById('modalAmount').value = amount;
+  document.getElementById('modalSource').value = sourceCode;
+  document.getElementById('modalTarget').value = 'CNY';
+  document.getElementById('modalTitle').textContent =
+    `${CURRENCIES[sourceCode].flag} ${CURRENCIES[sourceCode].char} → ?`;
+  updateModalResult();
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+function updateModalResult() {
+  const amount = parseFloat(document.getElementById('modalAmount').value);
+  const src = document.getElementById('modalSource').value;
+  const tgt = document.getElementById('modalTarget').value;
+  const resultEl = document.getElementById('modalResult');
+
+  if (isNaN(amount) || amount <= 0) {
+    resultEl.innerHTML = '<span style="color:var(--text-secondary)">请输入有效金额</span>';
+    return;
+  }
+
+  // Always show all target currencies for convenience
+  const targets = DISPLAY_ORDER.filter(c => c !== src);
+  const lines = targets.map(code => {
+    const val = convert(amount, src, code);
+    const sym = CURRENCIES[code].symbol;
+    const fmtVal = fmt(val, code);
+    const isSelected = code === tgt;
+    return `<div class="result-line"${isSelected ? ' style="font-size:17px;background:#dbeafe;margin:-4px -6px;padding:4px 6px;border-radius:6px"' : ''}>
+      <span class="result-label">${CURRENCIES[code].flag} ${CURRENCIES[code].char}</span>
+      <span class="result-val" style="color:${isSelected ? 'var(--primary)' : 'var(--text)'}">${sym}${fmtVal}</span>
+    </div>`;
+  }).join('');
+
+  resultEl.innerHTML = lines;
+}
+
+// Event bindings
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+document.getElementById('modalAmount').addEventListener('input', updateModalResult);
+document.getElementById('modalSource').addEventListener('change', () => {
+  const src = document.getElementById('modalSource').value;
+  document.getElementById('modalTitle').textContent =
+    `${CURRENCIES[src].flag} ${CURRENCIES[src].char} → ?`;
+  updateModalResult();
+});
+document.getElementById('modalTarget').addEventListener('change', updateModalResult);
+
+// Keyboard shortcut: Esc to close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// Init
+(async function init() {
+  try {
+    await fetchRates();
+    buildTable();
+  } catch (err) {
+    document.getElementById('tableContainer').innerHTML =
+      `<div class="error-state">❌ ${err.message}。请稍后刷新重试。</div>`;
+  }
+})();
+</script>
+</body>
+</html>
