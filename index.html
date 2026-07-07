@@ -92,6 +92,18 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Table */
+  .table-hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 12px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
   .table-wrapper {
     background: var(--surface);
     border-radius: var(--radius);
@@ -115,28 +127,23 @@
     position: sticky;
     top: 0;
   }
-  thead th:first-child { text-align: left; }
+  .th-curr { display: block; }
+  .th-time { display: block; font-weight: 400; font-size: 11px; color: #94a3b8; margin-top: 2px; letter-spacing: 0; }
+  thead th { line-height: 1.3; cursor: pointer; }
   tbody td {
     padding: 10px 14px;
     text-align: right;
     border-bottom: 1px solid var(--border);
-    font-variant-numeric: tabular-nums;
-    cursor: pointer;
+    font-variant-numeric: tabular-nums; cursor: pointer;
     transition: background .15s, color .15s;
   }
   tbody tr:last-child td { border-bottom: none; }
-  tbody td:first-child {
-    text-align: left;
-    font-weight: 600;
-    color: var(--text);
-    cursor: default;
-  }
-  tbody td:not(:first-child):hover {
+  tbody td:hover {
     background: #eef2ff;
     color: var(--primary);
   }
-  tbody tr:hover td:first-child { background: #f8fafc; }
   .cny-col { color: var(--text); }
+  tbody td.cny-col:hover { background: #f1f5f9; color: #1e293b; }
   .usd-col { color: #059669; }
   .krw-col { color: #d97706; }
   .mxn-col { color: #7c3aed; }
@@ -184,7 +191,6 @@
     border: none;
     background: transparent;
     border-radius: 6px;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -236,7 +242,7 @@
   .modal-result .result-label { color: var(--text-secondary); font-size: 13px; }
   .modal-result .result-val {
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums; cursor: pointer;
   }
 
   /* Footer */
@@ -313,10 +319,10 @@
 
 <script>
 const CURRENCIES = {
-  CNY: { name: '人民币', symbol: '¥', flag: '🇨🇳', char: 'RMB' },
-  USD: { name: '美元', symbol: '$', flag: '🇺🇸', char: 'USD' },
-  KRW: { name: '韩元', symbol: '₩', flag: '🇰🇷', char: 'KRW' },
-  MXN: { name: '墨西哥比索', symbol: 'Mex$', flag: '🇲🇽', char: 'MXN' },
+  CNY: { name: "人民币", symbol: "¥", flag: "🇨🇳", char: "RMB", tz: "Asia/Shanghai" },
+  USD: { name: "美元", symbol: "$", flag: "🇺🇸", char: "USD", tz: "America/New_York" },
+  KRW: { name: "韩元", symbol: "₩", flag: "🇰🇷", char: "KRW", tz: "Asia/Seoul" },
+  MXN: { name: "墨西哥比索", symbol: "Mex$", flag: "🇲🇽", char: "MXN", tz: "America/Mexico_City" },
 };
 const COL_CLASSES = { CNY: 'cny-col', USD: 'usd-col', KRW: 'krw-col', MXN: 'mxn-col' };
 const DISPLAY_ORDER = ['CNY', 'USD', 'KRW', 'MXN'];
@@ -349,12 +355,30 @@ function fmt(value, code) {
   return value.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
+function timeStr(tz) {
+  const now = new Date();
+  const opts = { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false };
+  const time = now.toLocaleString('zh-CN', opts);
+  const mmdd = now.toLocaleString('en-US', { timeZone: tz, month: '2-digit', day: '2-digit' });
+  const parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'short' }).formatToParts(now);
+  const tzAbbr = parts.find(p => p.type === 'timeZoneName')?.value || '';
+  return { time, mmdd, tz: tzAbbr };
+}
+
 function buildTable() {
   const container = document.getElementById('tableContainer');
 
-  const headerCols = DISPLAY_ORDER.map(code =>
-    `<th>${CURRENCIES[code].flag} ${CURRENCIES[code].char}</th>`
-  ).join('');
+  function defaultAmount(code) {
+    if (code === 'CNY') return 100;
+    if (code === 'KRW') return 1000;
+    if (code === 'USD' || code === 'MXN') return 10;
+    return 1;
+  }
+  function thHtml(code) {
+    const t = timeStr(CURRENCIES[code].tz);
+    return `<th onclick="openModal(${defaultAmount(code)}, '${code}')"><span class="th-curr">${CURRENCIES[code].flag} ${CURRENCIES[code].char}</span><span class="th-time" data-tz="${CURRENCIES[code].tz}">${t.mmdd} ${t.time} ${t.tz}</span></th>`;
+  }
+  const headerCols = DISPLAY_ORDER.map(thHtml).join('');
 
   const rows = [];
   for (let rmb = 50; rmb <= 1000; rmb += 50) {
@@ -369,6 +393,7 @@ function buildTable() {
   }
 
   container.innerHTML = `
+    <div class="table-hint">点击货币名称或任意金额，查看该币种与其他币种的兑换</div>
     <div class="table-wrapper">
       <table>
         <thead><tr>${headerCols}</tr></thead>
@@ -388,6 +413,17 @@ function buildTable() {
   const dateStr = lastUpdated ? `更新于 ${lastUpdated}` : '';
   infoEl.innerHTML = parts.join('<span style="color:var(--border)">|</span>') +
     `<span style="color:var(--text-secondary);font-size:12px;margin-left:4px">${dateStr ? '· '+dateStr : ''}</span>`;
+}
+
+// Update header time strings
+function updateHeaderTimes() {
+  document.querySelectorAll('.th-time').forEach(el => {
+    const tz = el.dataset.tz;
+    if (tz) {
+      const t = timeStr(tz);
+      el.textContent = `${t.mmdd} ${t.time} ${t.tz}`;
+    }
+  });
 }
 
 // Modal logic
@@ -459,6 +495,8 @@ document.addEventListener('keydown', (e) => {
   try {
     await fetchRates();
     buildTable();
+    // Update time display every 30 seconds
+    setInterval(updateHeaderTimes, 30000);
   } catch (err) {
     document.getElementById('tableContainer').innerHTML =
       `<div class="error-state">❌ ${err.message}。请稍后刷新重试。</div>`;
