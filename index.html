@@ -820,9 +820,9 @@ function buildTable() {
     const fmtRate = perCNY.toLocaleString('zh-CN', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
     return `<span class="rate-item">${CURRENCIES[code].flag} 1 ${CURRENCIES[code].char} = ¥${fmtRate}</span>`;
   });
-  const dateStr = lastUpdated ? `更新于 ${lastUpdated}` : '';
+  const updateStr = lastUpdated ? `更新于 ${lastUpdated}` : '';
   infoEl.innerHTML = parts.join('<span style="color:var(--border)">|</span>') +
-    `<span style="color:var(--text-secondary);font-size:12px;margin-left:4px">${dateStr ? '· '+dateStr : ''}</span>`;
+    `<span style="color:var(--text-secondary);font-size:12px;margin-left:4px">${updateStr ? '· '+updateStr : ''}</span>`;
 }
 
 // Update header time strings
