@@ -722,7 +722,7 @@ function solar2lunar(year, month, day) {
               return {
                 year: lunarYear, month: m + 1, day: remain + 1,
                 isLeap: false,
-                monthName: LUNAR_MONTH_NAMES[m],
+                monthName: LUNAR_MONTH_NAMES[m] + '月',
                 dayName: LUNAR_DAY_NAMES[remain] || (remain + 1) + '日'
               };
             }
@@ -748,7 +748,7 @@ function solar2lunar(year, month, day) {
           return {
             year: lunarYear, month: m + 1, day: remain + 1,
             isLeap: false,
-            monthName: LUNAR_MONTH_NAMES[m],
+            monthName: LUNAR_MONTH_NAMES[m] + '月',
             dayName: LUNAR_DAY_NAMES[remain] || (remain + 1) + '日'
           };
         }
