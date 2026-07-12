@@ -92,6 +92,13 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Table */
+  .date-bar {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 6px;
+    padding: 6px 14px;
+  }
   .table-hint {
     font-size: 13px;
     color: var(--text-secondary);
@@ -627,6 +634,131 @@ function timeStr(tz) {
   return { time, mmdd, tz: tzAbbr };
 }
 
+// Lunar calendar conversion using perpetual calendar data
+// Based on the classic algorithm with lookup table
+const LUNAR_DAYS = [
+  // year, leapMonth (0=none), days in months (high bits for leap month length)
+  // format: (leapMonth << 17) | (leapDays << 16) | monthDays
+  // monthDays: 12 bits, 1=30days, 0=29days, MSB=month1
+  // 1900-2026 data compressed
+  0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2, // 1900-1909
+  0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977, // 1910-1919
+  0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970, // 1920-1929
+  0x06566,0x0d4a0,0x0ea50,0x16a95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950, // 1930-1939
+  0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557, // 1940-1949
+  0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0, // 1950-1959
+  0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0, // 1960-1969
+  0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6, // 1970-1979
+  0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570, // 1980-1989
+  0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0, // 1990-1999
+  0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5, // 2000-2009
+  0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930, // 2010-2019
+  0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530, // 2020-2029
+  0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45, // 2030-2039
+  0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0, // 2040-2049
+  0x14b63
+];
+const LUNAR_MONTH_NAMES = ['正','二','三','四','五','六','七','八','九','十','冬','腊'];
+const LUNAR_DAY_NAMES = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
+  '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
+  '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+const TIAN_GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const DI_ZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const SHENG_XIAO = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+
+function ganzhi(year) {
+  var g = (year - 4) % 10;
+  var d = (year - 4) % 12;
+  return TIAN_GAN[g] + DI_ZHI[d] + '年（' + SHENG_XIAO[d] + '年）';
+}
+
+function solar2lunar(year, month, day) {
+  var idx = year - 1900;
+  if (idx < 0 || idx >= LUNAR_DAYS.length) return null;
+  
+  // Get days from 1900-01-31 (the start of lunar year 1900)
+  var baseDate = new Date(1900, 0, 31);
+  var targetDate = new Date(year, month - 1, day);
+  var offset = Math.floor((targetDate - baseDate) / 86400000);
+  if (offset < 0) return null;
+  
+  var lunarYear = 1900;
+  var leapMonth = 0;
+  var isLeap = false;
+  
+  for (var i = idx; i >= 0; i--) {
+    var info = LUNAR_DAYS[i];
+    var lm = (info >> 17) & 0x0f;
+    var leapDays = (info >> 16) & 0x01;
+    var monthBits = info & 0x1fff;
+    var yearDays = 0;
+    
+    // Count days for each month
+    var months = [];
+    for (var m = 0; m < 12; m++) {
+      var days = (monthBits & (1 << (11 - m))) ? 30 : 29;
+      months.push({month: m, days: days});
+      yearDays += days;
+    }
+    if (lm > 0) {
+      yearDays += leapDays ? 30 : 29;
+    }
+    
+    if (offset < yearDays) {
+      // Found the right lunar year
+      lunarYear = 1900 + i;
+      leapMonth = lm;
+      
+      var remain = offset;
+      var lunarMonth = 0;
+      var lunarDay = 0;
+      
+      for (var m = 0; m < 12; m++) {
+        var mDays = months[m].days;
+        if (remain < mDays) {
+          lunarMonth = m;
+          lunarDay = remain;
+          isLeap = false;
+          break;
+        }
+        remain -= mDays;
+      }
+      
+      if (remain > 0 && lm > 0 && lunarMonth === -1) {
+        // Handle leap month
+        var leapDays2 = (info >> 16) & 0x01;
+        var ld = leapDays2 ? 30 : 29;
+        if (remain < ld) {
+          lunarMonth = lm - 1;
+          lunarDay = remain;
+          isLeap = true;
+        } else {
+          remain -= ld;
+          // Continue with remaining months
+        }
+      }
+      
+      // If we didn't find the month yet
+      if (lunarMonth === 0 && lunarDay === 0 && remain === 0) {
+        lunarMonth = 0;
+        lunarDay = 0;
+      }
+      
+      lunarDay = lunarDay + 1; // days are 1-indexed
+      return {
+        year: lunarYear,
+        month: lunarMonth + 1,
+        day: lunarDay,
+        isLeap: isLeap,
+        monthName: (isLeap ? '闰' : '') + LUNAR_MONTH_NAMES[lunarMonth],
+        dayName: LUNAR_DAY_NAMES[lunarDay - 1] || lunarDay + '日'
+      };
+    }
+    offset -= yearDays;
+  }
+  return null;
+}
+
 function buildTable() {
   const container = document.getElementById('tableContainer');
 
@@ -654,7 +786,15 @@ function buildTable() {
     rows.push(`<tr>${cells}</tr>`);
   }
 
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  const weekdayStr = '星期' + weekdays[today.getDay()];
+  const lunar = solar2lunar(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const lunarStr = lunar ? `农历${ganzhi(lunar.year)}${lunar.month}月${lunar.dayName}` : '';
+
   container.innerHTML = `
+    <div class="date-bar">${dateStr} ${weekdayStr}${lunarStr ? ' · ' + lunarStr : ''}</div>
     <div class="table-hint">点击货币名称或任意金额，查看该币种与其他币种的兑换</div>
     <div class="table-wrapper">
       <table>
