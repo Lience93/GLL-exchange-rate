@@ -173,6 +173,9 @@
     box-shadow: var(--shadow-lg);
     padding: 28px 24px 24px;
     transform: translateY(12px);
+    max-height: 90vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     transition: transform .2s;
   }
   .modal-overlay.active .modal { transform: translateY(0); }
@@ -395,6 +398,46 @@
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(37,99,235,.15);
   }
+  .amount-row {
+    display: flex;
+    gap: 6px;
+  }
+  .amount-row input { flex: 1; }
+  .calc-toggle {
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .calc-toggle:hover {
+    background: #f1f5f9;
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .calc-toggle.active {
+    background: #eef2ff;
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .calc-wrap {
+    overflow: hidden;
+    max-height: 500px;
+    transition: max-height .25s ease, opacity .2s;
+    opacity: 1;
+  }
+  .calc-wrap.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+  }
   .modal-result {
     margin-top: 8px;
     padding: 14px 16px;
@@ -463,7 +506,12 @@
     <div class="modal-body">
       <div class="form-row">
         <label for="modalAmount">金额</label>
-        <input type="text" id="modalAmount" inputmode="none" onfocus="this.select()" placeholder="0">
+        <div class="amount-row">
+          <input type="text" id="modalAmount" inputmode="none" onfocus="this.select()" placeholder="0">
+          <button class="calc-toggle" id="calcToggle" title="计算器">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+          </button>
+        </div>
       </div>
       <div class="quick-add">
         <button class="qa-btn" data-add="10000">+10000</button>
@@ -471,30 +519,32 @@
         <button class="qa-btn" data-add="100">+100</button>
         <button class="qa-btn" data-add="10">+10</button>
       </div>
-      <div class="calc">
-        <div class="calc-display">
-          <div class="calc-expr" id="calcExpr"></div>
-          <div class="calc-result" id="calcResult">0</div>
-        </div>
-        <div class="calc-buttons">
-          <button class="calc-btn calc-fn" data-calc="clear">C</button>
-          <button class="calc-btn calc-fn" data-calc="backspace">&larr;</button>
-          <button class="calc-btn calc-op" data-calc="÷">&divide;</button>
-          <button class="calc-btn calc-op" data-calc="×">&times;</button>
-          <button class="calc-btn" data-calc="7">7</button>
-          <button class="calc-btn" data-calc="8">8</button>
-          <button class="calc-btn" data-calc="9">9</button>
-          <button class="calc-btn calc-op" data-calc="-">&minus;</button>
-          <button class="calc-btn" data-calc="4">4</button>
-          <button class="calc-btn" data-calc="5">5</button>
-          <button class="calc-btn" data-calc="6">6</button>
-          <button class="calc-btn calc-op" data-calc="+">+</button>
-          <button class="calc-btn" data-calc="1">1</button>
-          <button class="calc-btn" data-calc="2">2</button>
-          <button class="calc-btn" data-calc="3">3</button>
-          <button class="calc-btn calc-eq" data-calc="=">=</button>
-          <button class="calc-btn" data-calc="0">0</button>
-          <button class="calc-btn" data-calc=".">.</button>
+      <div class="calc-wrap collapsed" id="calcWrap">
+        <div class="calc">
+          <div class="calc-display">
+            <div class="calc-expr" id="calcExpr"></div>
+            <div class="calc-result" id="calcResult">0</div>
+          </div>
+          <div class="calc-buttons">
+            <button class="calc-btn calc-fn" data-calc="clear">C</button>
+            <button class="calc-btn calc-fn" data-calc="backspace">&larr;</button>
+            <button class="calc-btn calc-op" data-calc="/">&divide;</button>
+            <button class="calc-btn calc-op" data-calc="*">&times;</button>
+            <button class="calc-btn" data-calc="7">7</button>
+            <button class="calc-btn" data-calc="8">8</button>
+            <button class="calc-btn" data-calc="9">9</button>
+            <button class="calc-btn calc-op" data-calc="-">&minus;</button>
+            <button class="calc-btn" data-calc="4">4</button>
+            <button class="calc-btn" data-calc="5">5</button>
+            <button class="calc-btn" data-calc="6">6</button>
+            <button class="calc-btn calc-op" data-calc="+">+</button>
+            <button class="calc-btn" data-calc="1">1</button>
+            <button class="calc-btn" data-calc="2">2</button>
+            <button class="calc-btn" data-calc="3">3</button>
+            <button class="calc-btn calc-eq" data-calc="=">=</button>
+            <button class="calc-btn" data-calc="0">0</button>
+            <button class="calc-btn" data-calc=".">.</button>
+          </div>
         </div>
       </div>
       <div class="calc-history" id="calcHistory">
@@ -656,6 +706,9 @@ function openModal(amount, sourceCode) {
   calcState.operator = null;
   calcState.justCalculated = false;
   updateCalcDisplay();
+  // Collapse calculator by default
+  document.getElementById('calcWrap').classList.add('collapsed');
+  document.getElementById('calcToggle').classList.remove('active');
 }
 
 function closeModal() {
@@ -710,6 +763,14 @@ document.querySelectorAll('.qa-btn').forEach(btn => {
       updateModalResult();
     }
   });
+});
+
+// Calculator toggle
+document.getElementById('calcToggle').addEventListener('click', () => {
+  const wrap = document.getElementById('calcWrap');
+  const btn = document.getElementById('calcToggle');
+  wrap.classList.toggle('collapsed');
+  btn.classList.toggle('active');
 });
 
 // Calculator
