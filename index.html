@@ -676,86 +676,93 @@ function solar2lunar(year, month, day) {
   var idx = year - 1900;
   if (idx < 0 || idx >= LUNAR_DAYS.length) return null;
   
-  // Get days from 1900-01-31 (the start of lunar year 1900)
+  // Calculate days from 1900-01-31 (lunar base date) to target
   var baseDate = new Date(1900, 0, 31);
   var targetDate = new Date(year, month - 1, day);
   var offset = Math.floor((targetDate - baseDate) / 86400000);
   if (offset < 0) return null;
   
+  // Iterate forward from 1900 to the target year
   var lunarYear = 1900;
-  var leapMonth = 0;
   var isLeap = false;
   
-  for (var i = idx; i >= 0; i--) {
+  for (var i = 0; i <= idx; i++) {
     var info = LUNAR_DAYS[i];
     var lm = (info >> 17) & 0x0f;
     var leapDays = (info >> 16) & 0x01;
     var monthBits = info & 0x1fff;
     var yearDays = 0;
+    var monthDays = [];
     
-    // Count days for each month
-    var months = [];
     for (var m = 0; m < 12; m++) {
-      var days = (monthBits & (1 << (11 - m))) ? 30 : 29;
-      months.push({month: m, days: days});
-      yearDays += days;
+      var d = (monthBits & (1 << (11 - m))) ? 30 : 29;
+      monthDays.push(d);
+      yearDays += d;
     }
     if (lm > 0) {
       yearDays += leapDays ? 30 : 29;
     }
     
     if (offset < yearDays) {
-      // Found the right lunar year
-      lunarYear = 1900 + i;
-      leapMonth = lm;
-      
+      // Found the correct lunar year, now find the month
       var remain = offset;
-      var lunarMonth = 0;
-      var lunarDay = 0;
       
-      for (var m = 0; m < 12; m++) {
-        var mDays = months[m].days;
-        if (remain < mDays) {
-          lunarMonth = m;
-          lunarDay = remain;
-          isLeap = false;
-          break;
+      // Months before the leap month
+      var beforeLeap = 0;
+      if (lm > 0) {
+        for (var m = 0; m < lm; m++) {
+          beforeLeap += monthDays[m];
         }
-        remain -= mDays;
-      }
-      
-      if (remain > 0 && lm > 0 && lunarMonth === -1) {
-        // Handle leap month
-        var leapDays2 = (info >> 16) & 0x01;
-        var ld = leapDays2 ? 30 : 29;
-        if (remain < ld) {
-          lunarMonth = lm - 1;
-          lunarDay = remain;
-          isLeap = true;
+        var leapLen = leapDays ? 30 : 29;
+        
+        if (remain < beforeLeap) {
+          // Before leap month
+          for (var m = 0; m < lm; m++) {
+            if (remain < monthDays[m]) {
+              return {
+                year: lunarYear, month: m + 1, day: remain + 1,
+                isLeap: false,
+                monthName: LUNAR_MONTH_NAMES[m],
+                dayName: LUNAR_DAY_NAMES[remain] || (remain + 1) + '日'
+              };
+            }
+            remain -= monthDays[m];
+          }
+        } else if (remain < beforeLeap + leapLen) {
+          // In leap month
+          var ld = remain - beforeLeap;
+          return {
+            year: lunarYear, month: lm, day: ld + 1,
+            isLeap: true,
+            monthName: '闰' + LUNAR_MONTH_NAMES[lm - 1],
+            dayName: LUNAR_DAY_NAMES[ld] || (ld + 1) + '日'
+          };
         } else {
-          remain -= ld;
-          // Continue with remaining months
+          remain -= leapLen;
         }
       }
       
-      // If we didn't find the month yet
-      if (lunarMonth === 0 && lunarDay === 0 && remain === 0) {
-        lunarMonth = 0;
-        lunarDay = 0;
+      // Regular months (after leap month if any)
+      for (var m = (lm > 0 ? lm : 0); m < 12; m++) {
+        if (remain < monthDays[m]) {
+          return {
+            year: lunarYear, month: m + 1, day: remain + 1,
+            isLeap: false,
+            monthName: LUNAR_MONTH_NAMES[m],
+            dayName: LUNAR_DAY_NAMES[remain] || (remain + 1) + '日'
+          };
+        }
+        remain -= monthDays[m];
       }
       
-      lunarDay = lunarDay + 1; // days are 1-indexed
-      return {
-        year: lunarYear,
-        month: lunarMonth + 1,
-        day: lunarDay,
-        isLeap: isLeap,
-        monthName: (isLeap ? '闰' : '') + LUNAR_MONTH_NAMES[lunarMonth],
-        dayName: LUNAR_DAY_NAMES[lunarDay - 1] || lunarDay + '日'
-      };
+      // Should not reach here
+      return null;
     }
+    
     offset -= yearDays;
+    lunarYear++;
   }
+  
   return null;
 }
 
@@ -791,7 +798,7 @@ function buildTable() {
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
   const weekdayStr = '星期' + weekdays[today.getDay()];
   const lunar = solar2lunar(today.getFullYear(), today.getMonth() + 1, today.getDate());
-  const lunarStr = lunar ? `农历${ganzhi(lunar.year)}${lunar.month}月${lunar.dayName}` : '';
+  const lunarStr = lunar ? `农历${ganzhi(lunar.year)}${lunar.monthName}${lunar.dayName}` : '';
 
   container.innerHTML = `
     <div class="date-bar">${dateStr} ${weekdayStr}${lunarStr ? ' · ' + lunarStr : ''}</div>
