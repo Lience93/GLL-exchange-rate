@@ -750,7 +750,7 @@ function buildTable() {
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
   const weekdayStr = '星期' + weekdays[today.getDay()];
   const lunar = solar2lunar(today.getFullYear(), today.getMonth() + 1, today.getDate());
-  const lunarStr = lunar ? `农历${ganzhi(lunar.year)}${lunar.monthName}${lunar.dayName}` : '';
+  const lunarStr = lunar ? `农历${lunar.monthName}${lunar.dayName}` : '';
   document.getElementById('dateBar').textContent = dateStr + ' ' + weekdayStr + (lunarStr ? ' \u00b7 ' + lunarStr : '');
 
   container.innerHTML = `
