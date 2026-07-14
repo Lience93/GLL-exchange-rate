@@ -772,7 +772,7 @@ function buildTable() {
     const fmtRate = perCNY.toLocaleString('zh-CN', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
     return `<span class="rate-item">${CURRENCIES[code].flag} 1 ${CURRENCIES[code].char} = ¥${fmtRate}</span>`;
   });
-  const updateStr = lastUpdated ? `更新于 ${lastUpdated}` : '';
+  const updateStr = `更新于 ${new Date().toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}`;
   infoEl.innerHTML = parts.join('<span style="color:var(--border)">|</span>') +
     `<span style="color:var(--text-secondary);font-size:12px;margin-left:4px">${updateStr ? '· '+updateStr : ''}</span>`;
 }
@@ -786,6 +786,28 @@ function updateHeaderTimes() {
       el.textContent = `${t.mmdd} ${t.time}`;
     }
   });
+}
+
+// Refresh exchange rates
+async function refreshRates() {
+  try {
+    await fetchRates();
+    // Update rate info bar
+    const infoEl = document.getElementById('rateInfo');
+    const parts = DISPLAY_ORDER.filter(c => c !== 'CNY').map(code => {
+      const rate = rates[code];
+      const perCNY = 1 / rate;
+      const decimals = code === 'KRW' ? 4 : 2;
+      const fmtRate = perCNY.toLocaleString('zh-CN', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
+      return `<span class="rate-item">${CURRENCIES[code].flag} 1 ${CURRENCIES[code].char} = ¥${fmtRate}</span>`;
+    });
+    infoEl.innerHTML = parts.join('<span style="color:var(--border)">|</span>') +
+      `<span style="color:var(--text-secondary);font-size:12px;margin-left:4px"> · 更新于 ${new Date().toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>`;
+    // Rebuild table with new rates
+    buildTable();
+  } catch (e) {
+    // Silently retry next cycle
+  }
 }
 
 // Modal logic
@@ -1058,6 +1080,8 @@ document.addEventListener('keydown', (e) => {
     buildTable();
     // Update time display every 30 seconds
     setInterval(updateHeaderTimes, 30000);
+    // Refresh exchange rates every 5 minutes
+    setInterval(refreshRates, 300000);
   } catch (err) {
     document.getElementById('tableContainer').innerHTML =
       `<div class="error-state">❌ ${err.message}。请稍后刷新重试。</div>`;
