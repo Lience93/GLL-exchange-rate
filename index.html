@@ -154,6 +154,8 @@
   .usd-col { color: #059669; }
   .krw-col { color: #d97706; }
   .mxn-col { color: #7c3aed; }
+  .brl-col { color: #0d9488; }
+  .ars-col { color: #0891b2; }
 
   /* Modal Overlay */
   .modal-overlay {
@@ -482,11 +484,109 @@
     thead th, tbody td { padding: 8px 10px; }
     .modal { padding: 20px 16px; }
   }
+
+  /* Currency selection screen */
+  .selection-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  }
+  .selection-box {
+    background: var(--surface);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    max-width: 520px;
+    padding: 32px 28px;
+  }
+  .selection-header { text-align: center; margin-bottom: 24px; }
+  .selection-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .selection-header p { font-size: 14px; color: var(--text-secondary); }
+  .currency-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .currency-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    user-select: none;
+  }
+  .currency-option:hover { border-color: #c7d2fe; background: #f8fafc; }
+  .currency-option.selected {
+    border-color: var(--primary);
+    background: #eef2ff;
+  }
+  .currency-option.disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+  .currency-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+  .currency-option.disabled input { cursor: not-allowed; }
+  .currency-option .co-flag { font-size: 24px; }
+  .currency-option .co-name { font-weight: 600; font-size: 14px; }
+  .currency-option .co-code { font-size: 12px; color: var(--text-secondary); }
+  .currency-option.locked { border-style: dashed; background: #f8fafc; }
+  .selection-footer { text-align: center; }
+  .enter-btn {
+    width: 100%;
+    padding: 12px 0;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .enter-btn:hover { background: var(--primary-hover); }
+  .enter-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .enter-error {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #dc2626;
+    min-height: 18px;
+  }
+  @media (max-width: 420px) {
+    .currency-list { grid-template-columns: 1fr; }
+    .selection-box { padding: 24px 18px; }
+  }
 </style>
 </head>
 <body>
 
-<div class="container">
+<!-- Currency selection screen -->
+<div class="selection-screen" id="selectionScreen">
+  <div class="selection-box">
+    <div class="selection-header">
+      <h2>咕辘辘跨境电商汇率换算工具</h2>
+      <p>选择需要相互兑换的货币，最多勾选 4 种</p>
+    </div>
+    <div class="currency-list" id="currencyList"></div>
+    <div class="selection-footer">
+      <button class="enter-btn" id="enterBtn">进入汇率换算工具</button>
+      <div class="enter-error" id="enterError"></div>
+    </div>
+  </div>
+</div>
+
+<div class="container" id="mainContainer" style="display:none">
   <div class="header">
     <h1>咕辘辘跨境电商汇率换算工具</h1>
     <div class="sub">实时人民币兑换汇率对照表</div>
@@ -593,9 +693,11 @@ const CURRENCIES = {
   USD: { name: "美元", symbol: "$", flag: "🇺🇸", char: "USD", tz: "America/New_York" },
   KRW: { name: "韩元", symbol: "₩", flag: "🇰🇷", char: "KRW", tz: "Asia/Seoul" },
   MXN: { name: "墨西哥比索", symbol: "Mex$", flag: "🇲🇽", char: "MXN", tz: "America/Mexico_City" },
+  BRL: { name: "巴西雷亚尔", symbol: "R$", flag: "🇧🇷", char: "BRL", tz: "America/Sao_Paulo" },
+  ARS: { name: "阿根廷比索", symbol: "ARS$", flag: "🇦🇷", char: "ARS", tz: "America/Argentina/Buenos_Aires" },
 };
-const COL_CLASSES = { CNY: 'cny-col', USD: 'usd-col', KRW: 'krw-col', MXN: 'mxn-col' };
-const DISPLAY_ORDER = ['CNY', 'USD', 'KRW', 'MXN'];
+const COL_CLASSES = { CNY: 'cny-col', USD: 'usd-col', KRW: 'krw-col', MXN: 'mxn-col', BRL: 'brl-col', ARS: 'ars-col' };
+let selectedCurrencies = ['CNY', 'USD'];
 
 let rates = {}; // { CNY: 1, USD: 0.147, KRW: 225.28, MXN: 2.57 }
 let lastUpdated = '';
@@ -610,6 +712,8 @@ async function fetchRates() {
     USD: data.rates.USD,
     KRW: data.rates.KRW,
     MXN: data.rates.MXN,
+    BRL: data.rates.BRL,
+    ARS: data.rates.ARS,
   };
 }
 
@@ -724,18 +828,18 @@ function buildTable() {
   function defaultAmount(code) {
     if (code === 'CNY') return 100;
     if (code === 'KRW') return 1000;
-    if (code === 'USD' || code === 'MXN') return 10;
+    if (code === 'USD' || code === 'MXN' || code === 'BRL' || code === 'ARS') return 10;
     return 1;
   }
   function thHtml(code) {
     const t = timeStr(CURRENCIES[code].tz);
     return `<th onclick="openModal(${defaultAmount(code)}, '${code}')"><span class="th-curr">${CURRENCIES[code].flag} ${CURRENCIES[code].char}</span><span class="th-time" data-tz="${CURRENCIES[code].tz}">${t.mmdd} ${t.time}</span></th>`;
   }
-  const headerCols = DISPLAY_ORDER.map(thHtml).join('');
+  const headerCols = selectedCurrencies.map(thHtml).join('');
 
   const rows = [];
   for (let rmb = 50; rmb <= 1000; rmb += 50) {
-    const cells = DISPLAY_ORDER.map((code, idx) => {
+    const cells = selectedCurrencies.map((code, idx) => {
       if (code === 'CNY') {
         return `<td class="${COL_CLASSES[code]}" onclick="openModal(${rmb}, 'CNY')">${rmb}</td>`;
       }
@@ -765,7 +869,7 @@ function buildTable() {
 
   // Update rate info bar
   const infoEl = document.getElementById('rateInfo');
-  const parts = DISPLAY_ORDER.filter(c => c !== 'CNY').map(code => {
+  const parts = selectedCurrencies.filter(c => c !== 'CNY').map(code => {
     const rate = rates[code];
     const perCNY = 1 / rate;
     const decimals = code === 'KRW' ? 4 : 2;
@@ -794,7 +898,7 @@ async function refreshRates() {
     await fetchRates();
     // Update rate info bar
     const infoEl = document.getElementById('rateInfo');
-    const parts = DISPLAY_ORDER.filter(c => c !== 'CNY').map(code => {
+    const parts = selectedCurrencies.filter(c => c !== 'CNY').map(code => {
       const rate = rates[code];
       const perCNY = 1 / rate;
       const decimals = code === 'KRW' ? 4 : 2;
@@ -845,7 +949,7 @@ function updateModalResult() {
   if (isNaN(amount) || amount < 0) amount = 0;
 
   // Always show all target currencies for convenience
-  const targets = DISPLAY_ORDER.filter(c => c !== src);
+  const targets = selectedCurrencies.filter(c => c !== src);
   const lines = targets.map(code => {
     const val = convert(amount, src, code);
     const sym = CURRENCIES[code].symbol;
@@ -1073,15 +1177,92 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeModal();
 });
 
+// ========== Currency selection screen ==========
+function buildCurrencyList() {
+  const list = document.getElementById('currencyList');
+  const order = ['CNY', 'USD', 'KRW', 'MXN', 'BRL', 'ARS'];
+  list.innerHTML = order.map(code => {
+    const c = CURRENCIES[code];
+    const locked = code === 'CNY';
+    const checked = selectedCurrencies.includes(code);
+    return `<label class="currency-option${checked ? ' selected' : ''}${locked ? ' locked' : ''}" data-code="${code}">
+      <input type="checkbox" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''} data-code="${code}">
+      <span class="co-flag">${c.flag}</span>
+      <span><span class="co-name">${c.name}</span><br><span class="co-code">${c.char}</span></span>
+    </label>`;
+  }).join('');
+}
+
+function updateSelectionUI() {
+  const list = document.getElementById('currencyList');
+  const checkboxes = list.querySelectorAll('input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    const code = cb.dataset.code;
+    const label = list.querySelector(`.currency-option[data-code="${code}"]`);
+    const isSelected = selectedCurrencies.includes(code);
+    if (code === 'CNY') {
+      label.classList.add('selected');
+      return;
+    }
+    label.classList.toggle('selected', isSelected);
+    // Disable unchecked options when at max
+    const atMax = selectedCurrencies.length >= 4;
+    label.classList.toggle('disabled', !isSelected && atMax);
+    cb.disabled = !isSelected && atMax;
+  });
+  const btn = document.getElementById('enterBtn');
+  btn.disabled = selectedCurrencies.length < 2;
+  const err = document.getElementById('enterError');
+  if (err) err.textContent = '';
+}
+
+function populateModalSelects() {
+  const src = document.getElementById('modalSource');
+  const tgt = document.getElementById('modalTarget');
+  const options = selectedCurrencies.map(code => {
+    const c = CURRENCIES[code];
+    return `<option value="${code}">${c.name} (${c.char})</option>`;
+  }).join('');
+  src.innerHTML = options;
+  tgt.innerHTML = options;
+}
+
+document.getElementById('enterBtn').addEventListener('click', () => {
+  if (selectedCurrencies.length < 2) {
+    document.getElementById('enterError').textContent = '请至少选择 2 种货币';
+    return;
+  }
+  document.getElementById('selectionScreen').style.display = 'none';
+  document.getElementById('mainContainer').style.display = '';
+  populateModalSelects();
+  buildTable();
+  setInterval(updateHeaderTimes, 30000);
+  setInterval(refreshRates, 300000);
+});
+
+document.getElementById('currencyList').addEventListener('change', (e) => {
+  const code = e.target.dataset.code;
+  if (!code || code === 'CNY') return;
+  if (e.target.checked) {
+    if (selectedCurrencies.length >= 4) {
+      e.target.checked = false;
+      document.getElementById('enterError').textContent = '最多勾选 4 种货币';
+      updateSelectionUI();
+      return;
+    }
+    if (!selectedCurrencies.includes(code)) selectedCurrencies.push(code);
+  } else {
+    selectedCurrencies = selectedCurrencies.filter(c => c !== code);
+  }
+  updateSelectionUI();
+});
+
 // Init
 (async function init() {
+  buildCurrencyList();
+  updateSelectionUI();
   try {
     await fetchRates();
-    buildTable();
-    // Update time display every 30 seconds
-    setInterval(updateHeaderTimes, 30000);
-    // Refresh exchange rates every 5 minutes
-    setInterval(refreshRates, 300000);
   } catch (err) {
     document.getElementById('tableContainer').innerHTML =
       `<div class="error-state">❌ ${err.message}。请稍后刷新重试。</div>`;
