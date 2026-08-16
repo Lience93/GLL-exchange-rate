@@ -28,6 +28,17 @@
 3. **避免同时改同一文件**：改动前先看对方分支是否动过该文件。若确实要改同一文件，先完成第 2 步的合并，改完立即提交。
 4. **合并方向**：需要合入主分支时，在 Codex 侧执行 `git merge dsh-work`，解决冲突后提交到 `main`，再 `git push origin main` 同步到 GitHub。
 
+## 部署上线流程（每次改动后执行）
+
+GitHub Pages 网站（https://lience93.github.io/GLL-exchange-rate/ ）从 **`main` 分支**构建，只推送 `dsh-work` 不会上线。任何一方的改动要上线，必须完成以下步骤（DSH 已验证完整链路，Codex 或 DSH 做均可）：
+
+1. **提交并推送**：在各自分支 commit 后 `git push origin <分支名>`。
+2. **合并到 main**：在 `~/Documents/汇率换算`（main 工作区）执行 `git merge dsh-work`（或反向），解决冲突后 `git push origin main`。
+3. **等待 Pages 构建**：GitHub 自动构建，约 1-2 分钟。可用 API 查询状态：
+   `curl -H "Authorization: Bearer <PAT>" https://api.github.com/repos/Lience93/GLL-exchange-rate/pages/builds/latest`
+   状态为 `built` 即完成。
+4. **验证上线**：抓取 https://lience93.github.io/GLL-exchange-rate/ ，确认新内容已生效（注意浏览器缓存，必要时强制刷新 `Cmd+Shift+R`）。
+
 ## 项目速览
 
 `index.html` — 咕辘辘跨境电商汇率换算工具：支持人民币/美元/韩元/墨西哥比索/巴西雷亚尔/阿根廷比索换算，含农历日期、计算器、币种选择页等（单文件、内联样式与脚本）。
