@@ -1,0 +1,11 @@
+# Chrome 插件 — 本地测试版本，不推送到 GitHub
+# 本项目 GitHub 仓库只跟踪 index.html 网页工具
+background.js
+content.css
+content.js
+lib.js
+manifest.json
+popup.html
+popup.js
+images/
+咕辘辘汇率换算.zip
