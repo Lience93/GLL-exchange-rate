@@ -872,7 +872,7 @@ function buildTable() {
   const parts = selectedCurrencies.filter(c => c !== 'CNY').map(code => {
     const rate = rates[code];
     const perCNY = 1 / rate;
-    const decimals = code === 'KRW' ? 4 : 2;
+    const decimals = 4; // 汇率显示统一保留 4 位小数
     const fmtRate = perCNY.toLocaleString('zh-CN', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
     return `<span class="rate-item">${CURRENCIES[code].flag} 1 ${CURRENCIES[code].char} = ¥${fmtRate}</span>`;
   });
@@ -901,7 +901,7 @@ async function refreshRates() {
     const parts = selectedCurrencies.filter(c => c !== 'CNY').map(code => {
       const rate = rates[code];
       const perCNY = 1 / rate;
-      const decimals = code === 'KRW' ? 4 : 2;
+      const decimals = 4; // 汇率显示统一保留 4 位小数
       const fmtRate = perCNY.toLocaleString('zh-CN', {minimumFractionDigits:decimals, maximumFractionDigits:decimals});
       return `<span class="rate-item">${CURRENCIES[code].flag} 1 ${CURRENCIES[code].char} = ¥${fmtRate}</span>`;
     });
