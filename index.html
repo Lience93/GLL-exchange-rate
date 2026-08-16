@@ -970,6 +970,10 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => {
   if (e.target === document.getElementById('modalOverlay')) closeModal();
 });
 document.getElementById('modalAmount').addEventListener('input', updateModalResult);
+// 点击金额输入框自动全选，直接输入数字即可覆盖原值
+const amountInput = document.getElementById('modalAmount');
+amountInput.addEventListener('focus', () => amountInput.select());
+amountInput.addEventListener('mouseup', (e) => e.preventDefault());
 document.getElementById('modalSource').addEventListener('change', () => {
   const src = document.getElementById('modalSource').value;
   document.getElementById('modalTitle').textContent =
