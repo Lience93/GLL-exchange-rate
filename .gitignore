@@ -1,3 +1,6 @@
 # 已弃用的 Chrome 插件归档目录（本地保留，不推送到 GitHub）
 # 本项目 GitHub 仓库只跟踪 index.html 网页工具
 _archive-plugin/
+
+# macOS 系统文件
+.DS_Store
