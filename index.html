@@ -563,6 +563,97 @@
     color: #dc2626;
     min-height: 18px;
   }
+  /* 汇率走势图标（选择页每种货币） */
+  .co-chart {
+    margin-left: auto;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 7px;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, transform .15s;
+  }
+  .co-chart:hover {
+    border-color: var(--primary);
+    background: #eef2ff;
+    transform: translateY(-1px);
+  }
+
+  /* 汇率走势图弹窗 */
+  .modal.chart-modal { width: 680px; }
+  .chart-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .chart-meta .cm-cur { font-size: 15px; font-weight: 600; }
+  .chart-meta .cm-sub { font-size: 12px; color: var(--text-secondary); }
+  .chart-stats {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+  .chart-stat { font-size: 12px; color: var(--text-secondary); }
+  .chart-stat b { display: block; font-size: 15px; font-weight: 600; color: var(--text); margin-top: 2px; }
+  .chart-stat b.up { color: #dc2626; }
+  .chart-stat b.down { color: #16a34a; }
+  .chart-box { position: relative; }
+  .chart-svg { display: block; width: 100%; height: auto; touch-action: none; }
+  .chart-grid { stroke: #eef2f7; stroke-width: 1; }
+  .chart-axis-line { stroke: #cbd5e1; stroke-width: 1; }
+  .chart-axis-text { font-size: 10px; fill: var(--text-secondary); }
+  .chart-area { fill: rgba(37, 99, 235, .10); }
+  .chart-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .chart-hover-line { stroke: #94a3b8; stroke-width: 1; stroke-dasharray: 3 3; }
+  .chart-hover-dot { fill: #fff; stroke: var(--primary); stroke-width: 2; }
+  .chart-tip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(30, 41, 59, .93);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 5px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    transform: translate(-50%, -125%);
+    opacity: 0;
+    transition: opacity .12s;
+    z-index: 2;
+  }
+  .chart-tip.show { opacity: 1; }
+  .chart-status {
+    padding: 40px 0;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+  .chart-status.error { color: #dc2626; }
+  .chart-source {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: right;
+  }
+  @media (max-width: 620px) {
+    .modal.chart-modal { width: 92vw; }
+    .chart-stats { gap: 14px; }
+  }
+
   @media (max-width: 420px) {
     .currency-list { grid-template-columns: 1fr; }
     .selection-box { padding: 24px 18px; }
@@ -684,6 +775,27 @@
       </div>
       <div class="modal-result" id="modalResult"></div>
     </div>
+  </div>
+</div>
+
+<!-- 近半年汇率走势图 Modal -->
+<div class="modal-overlay" id="chartOverlay">
+  <div class="modal chart-modal">
+    <div class="modal-header">
+      <h2 id="chartTitle">汇率走势</h2>
+      <button class="modal-close" id="chartClose" aria-label="关闭">&times;</button>
+    </div>
+    <div class="chart-meta">
+      <span class="cm-cur" id="chartCur"></span>
+      <span class="cm-sub" id="chartRange"></span>
+    </div>
+    <div class="chart-stats" id="chartStats" style="display:none"></div>
+    <div class="chart-box" id="chartBox">
+      <div class="chart-status" id="chartStatus">正在加载历史汇率…</div>
+      <svg class="chart-svg" id="chartSvg" viewBox="0 0 640 280" style="display:none"></svg>
+      <div class="chart-tip" id="chartTip"></div>
+    </div>
+    <div class="chart-source" id="chartSource"></div>
   </div>
 </div>
 
@@ -1189,10 +1301,13 @@ function buildCurrencyList() {
     const c = CURRENCIES[code];
     const locked = code === 'CNY';
     const checked = selectedCurrencies.includes(code);
+    // 人民币兑人民币恒为 1，无需走势图
+    const chartBtn = locked ? '' : `<button type="button" class="co-chart" data-chart="${code}" title="查看${c.name}近半年兑人民币汇率走势" aria-label="查看${c.name}汇率走势">📈</button>`;
     return `<label class="currency-option${checked ? ' selected' : ''}${locked ? ' locked' : ''}" data-code="${code}">
       <input type="checkbox" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''} data-code="${code}">
       <span class="co-flag">${c.flag}</span>
       <span><span class="co-name">${c.name}</span><br><span class="co-code">${c.char}</span></span>
+      ${chartBtn}
     </label>`;
   }).join('');
 }
@@ -1259,6 +1374,244 @@ document.getElementById('currencyList').addEventListener('change', (e) => {
     selectedCurrencies = selectedCurrencies.filter(c => c !== code);
   }
   updateSelectionUI();
+});
+
+// ========== 近半年汇率走势图 ==========
+const CHART_MONTHS_BACK = 6;
+const CDN_SAMPLE_COUNT = 24; // 无 frankfurter 数据的币种，走 jsDelivr 采样
+let chartGeom = null;
+
+function ymd(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// 返回 [{ date: 'YYYY-MM-DD', value: 1 单位该币种 = 多少人民币 }]
+async function fetchHistorySeries(code) {
+  const end = new Date();
+  const start = new Date(end.getTime());
+  start.setMonth(start.getMonth() - CHART_MONTHS_BACK);
+  if (code === 'ARS') return fetchSeriesFromCdn('ars', start, end);
+  try {
+    return await fetchSeriesFromFrankfurter(code, start, end);
+  } catch (err) {
+    // frankfurter 覆盖不到时退回 CDN 数据源
+    return fetchSeriesFromCdn(code.toLowerCase(), start, end);
+  }
+}
+
+async function fetchSeriesFromFrankfurter(code, start, end) {
+  const url = `https://api.frankfurter.dev/v1/${ymd(start)}..${ymd(end)}?base=CNY&symbols=${code}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`接口返回 HTTP ${res.status}`);
+  const data = await res.json();
+  const rates = data.rates || {};
+  const series = Object.keys(rates).sort()
+    .map(date => ({ date, value: rates[date][code] ? 1 / rates[date][code] : null }))
+    .filter(p => p.value > 0);
+  if (series.length < 2) throw new Error('该区间暂无历史数据');
+  return series;
+}
+
+// currency-api 按天发布在 jsDelivr 上，只能按日期采样
+async function fetchSeriesFromCdn(lowerCode, start, end) {
+  const span = Math.max(end.getTime() - start.getTime(), 86400000);
+  const dates = [];
+  for (let i = 0; i <= CDN_SAMPLE_COUNT; i++) {
+    dates.push(new Date(start.getTime() + span * i / CDN_SAMPLE_COUNT));
+  }
+  const picked = await Promise.all(dates.map(async d => {
+    try {
+      const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${ymd(d)}/v1/currencies/cny.json`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      const v = json && json.cny ? json.cny[lowerCode] : null;
+      return v ? { date: ymd(d), value: 1 / v } : null;
+    } catch (e) {
+      return null;
+    }
+  }));
+  const series = picked.filter(Boolean).sort((a, b) => (a.date < b.date ? -1 : 1));
+  if (series.length < 2) throw new Error('该区间暂无历史数据');
+  return series;
+}
+
+function chartDecimals(v) {
+  return v >= 0.01 ? 4 : 6;
+}
+function fmtChartValue(v) {
+  const d = chartDecimals(v);
+  return v.toLocaleString('zh-CN', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function tsOf(dateStr) {
+  return new Date(dateStr + 'T00:00:00').getTime();
+}
+
+function renderChartStats(series, code) {
+  const el = document.getElementById('chartStats');
+  const latest = series[series.length - 1];
+  const maxP = series.reduce((a, b) => (b.value > a.value ? b : a));
+  const minP = series.reduce((a, b) => (b.value < a.value ? b : a));
+  const firstV = series[0].value;
+  const change = firstV ? (latest.value - firstV) / firstV * 100 : 0;
+  const cls = change > 0 ? 'up' : (change < 0 ? 'down' : '');
+  const sign = change > 0 ? '+' : '';
+  el.innerHTML = `
+    <div class="chart-stat">最新 (${latest.date})<b>¥${fmtChartValue(latest.value)}</b></div>
+    <div class="chart-stat">半年最高 (${maxP.date})<b>¥${fmtChartValue(maxP.value)}</b></div>
+    <div class="chart-stat">半年最低 (${minP.date})<b>¥${fmtChartValue(minP.value)}</b></div>
+    <div class="chart-stat">半年涨跌<b class="${cls}">${sign}${change.toFixed(2)}%</b></div>`;
+  el.style.display = '';
+}
+
+function renderChart(series, code) {
+  const W = 640, H = 280;
+  const PAD = { l: 62, r: 16, t: 16, b: 30 };
+  const svg = document.getElementById('chartSvg');
+
+  const values = series.map(p => p.value);
+  let min = Math.min(...values), max = Math.max(...values);
+  if (max === min) { max += Math.abs(max) * 0.01 || 0.001; min -= Math.abs(min) * 0.01 || 0.001; }
+  const padY = (max - min) * 0.15;
+  min -= padY; max += padY;
+
+  const t0 = tsOf(series[0].date), t1 = tsOf(series[series.length - 1].date);
+  const span = Math.max(t1 - t0, 86400000);
+  const X = t => PAD.l + ((t - t0) / span) * (W - PAD.l - PAD.r);
+  const Y = v => PAD.t + ((max - v) / (max - min)) * (H - PAD.t - PAD.b);
+
+  const parts = [];
+  const TICKS = 4;
+  for (let i = 0; i <= TICKS; i++) {
+    const v = min + (max - min) * i / TICKS;
+    const y = Y(v);
+    parts.push(`<line class="chart-grid" x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W - PAD.r}" y2="${y.toFixed(1)}"/>`);
+    parts.push(`<text class="chart-axis-text" x="${PAD.l - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end">¥${fmtChartValue(v)}</text>`);
+  }
+  const cursor = new Date(t0);
+  cursor.setDate(1);
+  cursor.setMonth(cursor.getMonth() + 1);
+  while (cursor.getTime() <= t1) {
+    const x = X(cursor.getTime());
+    parts.push(`<line class="chart-grid" x1="${x.toFixed(1)}" y1="${PAD.t}" x2="${x.toFixed(1)}" y2="${H - PAD.b}"/>`);
+    parts.push(`<text class="chart-axis-text" x="${x.toFixed(1)}" y="${H - PAD.b + 15}" text-anchor="middle">${cursor.getMonth() + 1}月</text>`);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  parts.push(`<line class="chart-axis-line" x1="${PAD.l}" y1="${H - PAD.b}" x2="${W - PAD.r}" y2="${H - PAD.b}"/>`);
+
+  const pts = series.map(p => `${X(tsOf(p.date)).toFixed(1)},${Y(p.value).toFixed(1)}`);
+  parts.push(`<polygon class="chart-area" points="${PAD.l},${H - PAD.b} ${pts.join(' ')} ${W - PAD.r},${H - PAD.b}"/>`);
+  parts.push(`<polyline class="chart-line" points="${pts.join(' ')}"/>`);
+  const first = series[0], last = series[series.length - 1];
+  parts.push(`<circle class="chart-dot" cx="${X(tsOf(first.date)).toFixed(1)}" cy="${Y(first.value).toFixed(1)}" r="3"/>`);
+  parts.push(`<circle class="chart-dot" cx="${X(tsOf(last.date)).toFixed(1)}" cy="${Y(last.value).toFixed(1)}" r="3"/>`);
+  parts.push(`<line class="chart-hover-line" id="chartHoverLine" x1="0" y1="${PAD.t}" x2="0" y2="${H - PAD.b}" style="display:none"/>`);
+  parts.push(`<circle class="chart-hover-dot" id="chartHoverDot" r="4.5" style="display:none"/>`);
+
+  svg.innerHTML = parts.join('');
+  chartGeom = { W, H, PAD, X, Y, series, code };
+}
+
+function hideChartHover() {
+  const line = document.getElementById('chartHoverLine');
+  const dot = document.getElementById('chartHoverDot');
+  const tip = document.getElementById('chartTip');
+  if (line) line.style.display = 'none';
+  if (dot) dot.style.display = 'none';
+  if (tip) tip.classList.remove('show');
+}
+
+function onChartMove(ev) {
+  if (!chartGeom) return;
+  const svgEl = document.getElementById('chartSvg');
+  const rect = svgEl.getBoundingClientRect();
+  if (!rect.width) return;
+  const vx = ((ev.clientX - rect.left) / rect.width) * chartGeom.W;
+  const { X, Y, series, code } = chartGeom;
+  let best = null, bestDist = Infinity;
+  for (const p of series) {
+    const d = Math.abs(X(tsOf(p.date)) - vx);
+    if (d < bestDist) { bestDist = d; best = p; }
+  }
+  if (!best || bestDist > 45) { hideChartHover(); return; }
+  const px = X(tsOf(best.date)), py = Y(best.value);
+  const line = document.getElementById('chartHoverLine');
+  const dot = document.getElementById('chartHoverDot');
+  const tip = document.getElementById('chartTip');
+  line.setAttribute('x1', px.toFixed(1));
+  line.setAttribute('x2', px.toFixed(1));
+  line.style.display = '';
+  dot.setAttribute('cx', px.toFixed(1));
+  dot.setAttribute('cy', py.toFixed(1));
+  dot.style.display = '';
+  tip.innerHTML = `${best.date}<br>1 ${CURRENCIES[code].char} = ¥${fmtChartValue(best.value)}`;
+  tip.style.left = `${(px / chartGeom.W) * rect.width}px`;
+  tip.style.top = `${(py / chartGeom.H) * rect.height}px`;
+  tip.classList.add('show');
+}
+
+async function openRateChart(code) {
+  const overlay = document.getElementById('chartOverlay');
+  const status = document.getElementById('chartStatus');
+  const svg = document.getElementById('chartSvg');
+  const stats = document.getElementById('chartStats');
+  const tip = document.getElementById('chartTip');
+  const c = CURRENCIES[code];
+
+  document.getElementById('chartTitle').textContent = `${c.flag} ${c.name} 汇率走势`;
+  document.getElementById('chartCur').textContent = `1 ${c.char} 兑人民币`;
+  document.getElementById('chartRange').textContent = '近半年';
+  document.getElementById('chartSource').textContent = '';
+  stats.style.display = 'none';
+  stats.innerHTML = '';
+  svg.style.display = 'none';
+  svg.innerHTML = '';
+  tip.classList.remove('show');
+  chartGeom = null;
+  status.style.display = '';
+  status.className = 'chart-status';
+  status.textContent = '正在加载近半年历史汇率…';
+  overlay.classList.add('active');
+
+  try {
+    const series = await fetchHistorySeries(code);
+    document.getElementById('chartRange').textContent =
+      `${series[0].date} ~ ${series[series.length - 1].date} · ${series.length} 个数据点`;
+    document.getElementById('chartSource').textContent = code === 'ARS'
+      ? '数据来源: currency-api (jsDelivr) · 周采样'
+      : '数据来源: Frankfurter · 欧洲央行参考汇率 · 每日';
+    renderChartStats(series, code);
+    status.style.display = 'none';
+    svg.style.display = '';
+    renderChart(series, code);
+  } catch (err) {
+    status.className = 'chart-status error';
+    status.textContent = `历史汇率加载失败：${err.message}`;
+  }
+}
+
+function closeRateChart() {
+  document.getElementById('chartOverlay').classList.remove('active');
+  chartGeom = null;
+}
+
+document.getElementById('chartClose').addEventListener('click', closeRateChart);
+document.getElementById('chartOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('chartOverlay')) closeRateChart();
+});
+document.getElementById('chartBox').addEventListener('mousemove', onChartMove);
+document.getElementById('chartBox').addEventListener('mouseleave', hideChartHover);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('chartOverlay').classList.contains('active')) closeRateChart();
+});
+
+// 选择页点击走势图标打开图表（阻止触发勾选）
+document.getElementById('currencyList').addEventListener('click', (e) => {
+  const btn = e.target.closest('.co-chart');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openRateChart(btn.dataset.chart);
 });
 
 // Init
