@@ -156,6 +156,8 @@
   .mxn-col { color: #7c3aed; }
   .brl-col { color: #0d9488; }
   .ars-col { color: #0891b2; }
+  .jpy-col { color: #e11d48; }
+  .rub-col { color: #4f46e5; }
 
   /* Modal Overlay */
   .modal-overlay {
@@ -762,6 +764,8 @@
           <option value="USD">美元 (USD)</option>
           <option value="KRW">韩元 (KRW)</option>
           <option value="MXN">墨西哥比索 (MXN)</option>
+          <option value="JPY">日元 (JPY)</option>
+          <option value="RUB">俄罗斯卢布 (RUB)</option>
         </select>
       </div>
       <div class="form-row">
@@ -771,6 +775,8 @@
           <option value="USD">美元 (USD)</option>
           <option value="KRW">韩元 (KRW)</option>
           <option value="MXN">墨西哥比索 (MXN)</option>
+          <option value="JPY">日元 (JPY)</option>
+          <option value="RUB">俄罗斯卢布 (RUB)</option>
         </select>
       </div>
       <div class="modal-result" id="modalResult"></div>
@@ -807,8 +813,10 @@ const CURRENCIES = {
   MXN: { name: "墨西哥比索", symbol: "Mex$", flag: "🇲🇽", char: "MXN", tz: "America/Mexico_City" },
   BRL: { name: "巴西雷亚尔", symbol: "R$", flag: "🇧🇷", char: "BRL", tz: "America/Sao_Paulo" },
   ARS: { name: "阿根廷比索", symbol: "ARS$", flag: "🇦🇷", char: "ARS", tz: "America/Argentina/Buenos_Aires" },
+  JPY: { name: "日元", symbol: "JP¥", flag: "🇯🇵", char: "JPY", tz: "Asia/Tokyo" },
+  RUB: { name: "俄罗斯卢布", symbol: "₽", flag: "🇷🇺", char: "RUB", tz: "Europe/Moscow" },
 };
-const COL_CLASSES = { CNY: 'cny-col', USD: 'usd-col', KRW: 'krw-col', MXN: 'mxn-col', BRL: 'brl-col', ARS: 'ars-col' };
+const COL_CLASSES = { CNY: 'cny-col', USD: 'usd-col', JPY: 'jpy-col', KRW: 'krw-col', MXN: 'mxn-col', BRL: 'brl-col', RUB: 'rub-col', ARS: 'ars-col' };
 let selectedCurrencies = ['CNY', 'USD'];
 
 let rates = {}; // { CNY: 1, USD: 0.147, KRW: 225.28, MXN: 2.57 }
@@ -826,6 +834,8 @@ async function fetchRates() {
     MXN: data.rates.MXN,
     BRL: data.rates.BRL,
     ARS: data.rates.ARS,
+    JPY: data.rates.JPY,
+    RUB: data.rates.RUB,
   };
 }
 
@@ -837,7 +847,7 @@ function convert(amount, from, to) {
 
 function fmt(value, code) {
   if (value === 0) return '0';
-  const decimals = code === 'KRW' ? 0 : 2;
+  const decimals = (code === 'KRW' || code === 'JPY') ? 0 : 2;
   return value.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
@@ -939,7 +949,8 @@ function buildTable() {
 
   function defaultAmount(code) {
     if (code === 'CNY') return 100;
-    if (code === 'KRW') return 1000;
+    if (code === 'KRW' || code === 'JPY') return 1000;
+    if (code === 'RUB') return 100;
     if (code === 'USD' || code === 'MXN' || code === 'BRL' || code === 'ARS') return 10;
     return 1;
   }
@@ -1296,7 +1307,7 @@ document.addEventListener('keydown', (e) => {
 // ========== Currency selection screen ==========
 function buildCurrencyList() {
   const list = document.getElementById('currencyList');
-  const order = ['CNY', 'USD', 'KRW', 'MXN', 'BRL', 'ARS'];
+  const order = ['CNY', 'USD', 'KRW', 'MXN', 'BRL', 'ARS', 'JPY', 'RUB'];
   list.innerHTML = order.map(code => {
     const c = CURRENCIES[code];
     const locked = code === 'CNY';
@@ -1379,6 +1390,7 @@ document.getElementById('currencyList').addEventListener('change', (e) => {
 // ========== 近半年汇率走势图 ==========
 const CHART_MONTHS_BACK = 6;
 const CDN_SAMPLE_COUNT = 24; // 无 frankfurter 数据的币种，走 jsDelivr 采样
+const CDN_ONLY_CURRENCIES = ['ARS', 'RUB']; // 欧洲央行参考汇率不含卢布/阿根廷比索
 let chartGeom = null;
 
 function ymd(d) {
@@ -1391,7 +1403,7 @@ async function fetchHistorySeries(code) {
   const end = new Date();
   const start = new Date(end.getTime());
   start.setMonth(start.getMonth() - CHART_MONTHS_BACK);
-  if (code === 'ARS') return fetchSeriesFromCdn('ars', start, end);
+  if (CDN_ONLY_CURRENCIES.includes(code)) return fetchSeriesFromCdn(code.toLowerCase(), start, end);
   try {
     return await fetchSeriesFromFrankfurter(code, start, end);
   } catch (err) {
@@ -1577,7 +1589,7 @@ async function openRateChart(code) {
     const series = await fetchHistorySeries(code);
     document.getElementById('chartRange').textContent =
       `${series[0].date} ~ ${series[series.length - 1].date} · ${series.length} 个数据点`;
-    document.getElementById('chartSource').textContent = code === 'ARS'
+    document.getElementById('chartSource').textContent = CDN_ONLY_CURRENCIES.includes(code)
       ? '数据来源: currency-api (jsDelivr) · 周采样'
       : '数据来源: Frankfurter · 欧洲央行参考汇率 · 每日';
     renderChartStats(series, code);
