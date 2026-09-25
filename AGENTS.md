@@ -2,20 +2,20 @@
 
 本仓库由 **Codex** 与 **DSH** 两个 AI 工具并行维护，采用 git 分支隔离，禁止直接互相覆盖文件。
 
-## 项目边界（重要）
+## 项目边界
 
-- **GitHub 仓库只跟踪 `index.html`** —— 单页网页汇率换算工具。
-- **Chrome 插件文件（`background.js`、`content.css`、`content.js`、`lib.js`、`manifest.json`、`popup.html`、`popup.js`、`images/`、zip）是本地测试版本**，已被 `.gitignore` 排除，不会推送到 GitHub。插件只存在于 `~/Documents/汇率换算` 主工作区，`~/Documents/汇率换算-dsh` 工作区没有这些文件。
-- 任何提交只应涉及 `index.html`（及协作文档），不要 `git add` 插件文件。
+- **GitHub 仓库只跟踪 `index.html`**（及本协作文档、`.gitignore`）—— 单页网页汇率换算工具，也就是线上网站本身。
+- **不要提交其他文件**：`index.html` 是唯一产物，改动只应发生在它身上。
+- **旧的 Chrome 插件已弃用**：插件文件（`background.js`、`content.js`、`popup.*`、`lib.js`、`manifest.json`、`images/`、zip）已归档到 `~/Documents/汇率换算/_archive-plugin/`，被 `.gitignore` 排除，不再维护、不推送、不要修改。
 
 ## 分支与工作区
 
 | 工具 | 分支 | 工作目录 |
 |---|---|---|
-| Codex | `main` | `~/Documents/汇率换算`（本目录） |
+| Codex | `main` | `~/Documents/汇率换算`（主目录） |
 | DSH | `dsh-work` | `~/Documents/汇率换算-dsh`（git worktree） |
 
-- Codex 只在本目录、`main` 分支上修改。
+- Codex 只在主目录、`main` 分支上修改。
 - DSH 只在 `~/Documents/汇率换算-dsh`、`dsh-work` 分支上修改。
 - 任何一方都不要在对方的目录里改文件，也不要动对方的分支（合并除外）。
 
@@ -26,7 +26,7 @@
    - Codex 侧：`git merge dsh-work`
    - DSH 侧：`git -C ~/Documents/汇率换算-dsh merge main`
 3. **避免同时改同一文件**：改动前先看对方分支是否动过该文件。若确实要改同一文件，先完成第 2 步的合并，改完立即提交。
-4. **合并方向**：需要合入主分支时，在 Codex 侧执行 `git merge dsh-work`，解决冲突后提交到 `main`，再 `git push origin main` 同步到 GitHub。
+4. **合并方向**：需要合入主分支时，在主目录执行 `git merge dsh-work`，解决冲突后提交到 `main`，再 `git push origin main` 同步到 GitHub。
 
 ## 部署上线流程（每次改动后执行）
 
@@ -41,4 +41,12 @@ GitHub Pages 网站（https://lience93.github.io/GLL-exchange-rate/ ）从 **`ma
 
 ## 项目速览
 
-`index.html` — 咕辘辘跨境电商汇率换算工具：支持人民币/美元/韩元/墨西哥比索/巴西雷亚尔/阿根廷比索换算，含农历日期、计算器、币种选择页等（单文件、内联样式与脚本）。
+`index.html` — 咕辘辘跨境电商汇率换算工具（单文件、内联样式与脚本）：
+
+- **8 种货币**：人民币 CNY、美元 USD、韩元 KRW、墨西哥比索 MXN、巴西雷亚尔 BRL、阿根廷比索 ARS、日元 JPY、俄罗斯卢布 RUB（选择页最多勾选 4 种）
+- **实时汇率**：`api.exchangerate-api.com/v4/latest/CNY`，每 5 分钟刷新，汇率条显示 4 位小数（日元/韩元金额不带小数）
+- **主表**：人民币 50~1000 元换算成所选货币；点击任意金额打开兑换弹窗（金额输入框点击自动全选）
+- **走势图**：选择页每种货币（人民币除外）的 📈 图标，查看近半年兑人民币折线图，含最高/最低/涨跌统计与悬停提示
+  - 数据源：`api.frankfurter.dev`（欧洲央行参考汇率，每日，覆盖 USD/KRW/MXN/BRL/JPY）
+  - 回退源：`@fawazahmed0/currency-api`（jsDelivr CDN，周采样，用于欧洲央行不含的 ARS/RUB）
+- **其他**：农历日期、时区显示、计算器
